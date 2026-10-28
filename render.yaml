@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: quickbyt
+    runtime: node
+    plan: free
+    buildCommand: npm run check
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: 24.22.1
+      - key: HOST
+        value: 0.0.0.0
+      - key: QUICKBYT_MANAGER_PIN
+        sync: false

@@ -1,0 +1,32 @@
+QUICK BYT — NO DOCKER, NO UBUNTU, NO WSL
+
+This edition runs directly on Windows using Node.js and its built-in SQLite support.
+There is no npm install step and no separate C compiler is needed.
+
+ONE-TIME SETUP
+1. Install Node.js 22.16 or newer from https://nodejs.org/
+2. Close and reopen VS Code after installing Node.js.
+3. Extract this whole ZIP into a normal folder.
+4. In VS Code choose File > Open Folder and select QuickByt_Windows_NoDocker.
+5. Double-click START_QUICKBYT.bat in File Explorer. The first run asks you to choose a manager PIN and creates .env.
+
+START THE WEBSITE
+Double-click START_QUICKBYT.bat. Keep its terminal window open.
+Website:       http://localhost:5500
+Backend check: http://localhost:5500/api/health
+Menu API:      http://localhost:5500/api/menu
+
+RUN MANUALLY IN VS CODE
+Open Terminal > New Terminal in the project root, then run:
+  node server.js
+If .env does not exist, create it with one line:
+  QUICKBYT_MANAGER_PIN=choose-your-own-private-pin
+The PIN must contain 6 to 64 characters. Never publish .env.
+
+IMPORTANT
+- Do not open frontend/index.html using file://. Open http://localhost:5500 instead.
+- Keep the terminal running while testing. Ctrl+C stops the server.
+- Orders and stock are stored in data/quickbyt.db. Do not delete the database if you need its data.
+- The default UPI ID in frontend/config.js is a placeholder; do not use it for real payments.
+- UPI payments remain pending until the canteen checks the real payment and confirms it in Manager Portal.
+- This is a local student-project setup. A public deployment needs additional production configuration and a persistent hosted database.

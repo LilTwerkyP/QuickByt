@@ -1,0 +1,14 @@
+{
+  "name": "quickbyt-windows-no-docker",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Quick Byt canteen ordering site with a Windows-native Node.js and SQLite backend",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "check": "node scripts/check_frontend_syntax.js && node scripts/check_menu_seed.js"
+  },
+  "engines": {
+    "node": ">=22.16.0"
+  }
+}
