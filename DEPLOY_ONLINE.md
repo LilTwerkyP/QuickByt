@@ -54,3 +54,17 @@ For persistent SQLite on Render, use a paid web service with a persistent disk m
 - `quickbyt@upi` is a placeholder. Replace it only with the canteen's confirmed merchant UPI ID.
 - UPI status is not automatically verified: a UTR number alone is not proof of payment. The manager must verify the merchant account before marking payment as paid.
 - A Render Free service can take about a minute to wake after being idle. That is normal for the free tier.
+
+
+## Troubleshooting: backend not connected or manager PIN rejected
+
+Open `https://YOUR-RENDER-SERVICE.onrender.com/api/health` using the actual service URL Render assigned to you. A healthy updated service returns JSON with `status: "ok"`, `menuCount: 57`, and `managerPinConfigured: true`.
+
+- If `/api/health` doesn't return JSON, make sure you created a **Web Service/Blueprint**, not a Static Site, and that the service root is the repository root. The `server.js` file must run with `npm start`; use the URL from that Render Web Service.
+- If health succeeds but `menuCount` is below 57, the backend is on old code. Push `server.js`, `frontend/index.html`, and `backend/menu_seed.json` to GitHub, then choose **Manual Deploy → Deploy latest commit** in Render.
+- If the manager login says the PIN is wrong, the server is reachable. Check **Render → Quick Byt service → Environment → `QUICKBYT_MANAGER_PIN`**. The `.env` on your PC is ignored by Git and isn't uploaded to Render. Set the variable to the same value you type into Manager Portal, save it, and restart/redeploy the service. Enter it without spaces at the start/end. If you have made five wrong attempts, wait five minutes or redeploy before retrying.
+- The health response never returns the PIN; `managerPinConfigured` is only a boolean.
+
+## Restored menu entries
+
+The updated site and seed include 57 dishes. Read `MENU_ITEMS_RESTORED.md` before using it for real orders: prices for the 19 restored items are provisional estimates because their actual prices weren't in the GitHub version checked for this fix. Confirm the canteen's rate list and edit both `frontend/index.html` and `backend/menu_seed.json` if any prices differ.

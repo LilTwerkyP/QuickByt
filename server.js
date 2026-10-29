@@ -44,10 +44,12 @@ function loadDotEnv(file) {
 }
 loadDotEnv(ENV_FILE);
 
-const managerPin = process.env.QUICKBYT_MANAGER_PIN || '';
+let managerPin = String(process.env.QUICKBYT_MANAGER_PIN || '').trim();
+// Render environment fields should be entered without quotes; tolerate a pair if one was pasted accidentally.
+if ((managerPin.startsWith('"') && managerPin.endsWith('"')) || (managerPin.startsWith("'") && managerPin.endsWith("'"))) managerPin = managerPin.slice(1, -1).trim();
 if (managerPin.length < 6 || managerPin.length > 64 || managerPin.startsWith('replace-this-')) {
-  console.error('Set QUICKBYT_MANAGER_PIN in the project-root .env file (6–64 characters).');
-  console.error('Open .env, replace the sample value, save it, then start Quick Byt again.');
+  console.error('Set QUICKBYT_MANAGER_PIN to a private value (6–64 characters).');
+  console.error('Local: set it in the project-root .env file. Hosted: set it in Render → your Web Service → Environment.');
   process.exit(2);
 }
 
@@ -91,6 +93,22 @@ db.exec(`
   );
 `);
 
+// Forward-compatible SQLite migrations: local/hosted databases created by earlier
+// Quick Byt builds may already have these tables but not the newer columns.
+function ensureColumn(table, column, definition) {
+  const columns = db.prepare(`PRAGMA table_info(${table})`).all();
+  if (!columns.some(entry => entry.name === column)) {
+    db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+    console.log(`Database migration: added ${table}.${column}`);
+  }
+}
+ensureColumn('menu', 'has_option', 'INTEGER NOT NULL DEFAULT 0');
+ensureColumn('menu', 'options_json', "TEXT NOT NULL DEFAULT '[]'");
+ensureColumn('orders', 'scheduled_slot_label', "TEXT NOT NULL DEFAULT ''");
+ensureColumn('orders', 'scheduled_date', "TEXT NOT NULL DEFAULT ''");
+ensureColumn('orders', 'access_token_hash', "TEXT NOT NULL DEFAULT ''");
+ensureColumn('order_items', 'option_text', "TEXT NOT NULL DEFAULT ''");
+
 // Insert/update menu descriptions and prices while preserving each item's saved stock state.
 const seedStmt = db.prepare(`INSERT INTO menu(id,name,category,price,is_veg,in_stock,image,has_option,options_json)
   VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET
@@ -104,6 +122,8 @@ for (const item of menuSeed) {
     seedTxn.get(String(item.id)) ? Number(db.prepare('SELECT in_stock FROM menu WHERE id=?').get(String(item.id)).in_stock) : (item.inStock === false ? 0 : 1),
     String(item.image || ''), item.hasOption ? 1 : 0, JSON.stringify(Array.isArray(item.options) ? item.options : []));
 }
+const seededMenuCount = Number(db.prepare('SELECT COUNT(*) AS count FROM menu').get().count);
+console.log(`Menu seed applied: ${menuSeed.length} seed rows; ${seededMenuCount} total rows in database.`);
 
 const sessions = new Map();
 const loginAttempts = new Map();
@@ -190,7 +210,11 @@ function getManagerSession(req) {
   if (!expires || expires <= Date.now()) { sessions.delete(match[1]); return false; }
   return true;
 }
-function clientIp(req) { return String(req.socket.remoteAddress || 'unknown'); }
+function clientIp(req) {
+  const forwarded = String(req.headers['x-forwarded-for'] || '').split(',').map(value => value.trim()).filter(Boolean);
+  // Render appends the connecting client address at the end of this header.
+  return forwarded.length ? forwarded[forwarded.length - 1] : String(req.socket.remoteAddress || 'unknown');
+}
 function checkLoginAllowed(ip) {
   const track = loginAttempts.get(ip);
   if (!track) return true;
@@ -254,14 +278,14 @@ async function routeApi(req, res, url) {
     if (!body || typeof body !== 'object' || Array.isArray(body)) { errorJson(res, 400, 'JSON body must be an object'); return; }
   }
 
-  if (method === 'GET' && pathname === '/api/health') { sendJson(res, 200, { status: 'ok', service: 'Quick Byt Node.js API' }, headers); return; }
+  if (method === 'GET' && pathname === '/api/health') { const count = Number(db.prepare('SELECT COUNT(*) AS count FROM menu').get().count); sendJson(res, 200, { status: 'ok', service: 'Quick Byt Node.js API', menuCount: count, managerPinConfigured: Boolean(managerPin) }, headers); return; }
   if (method === 'GET' && pathname === '/api/menu') { sendJson(res, 200, menuJson(), headers); return; }
 
   if (method === 'POST' && pathname === '/api/manager/login') {
     const ip = clientIp(req);
     if (!checkLoginAllowed(ip)) { errorJson(res, 429, 'Too many failed manager logins. Try again in five minutes.'); return; }
-    if (typeof body.pin !== 'string' || !constantTimeEqual(body.pin, managerPin)) {
-      recordFailedLogin(ip); errorJson(res, 401, 'Invalid manager PIN'); return;
+    if (typeof body.pin !== 'string' || !constantTimeEqual(body.pin.trim(), managerPin)) {
+      recordFailedLogin(ip); errorJson(res, 401, 'Invalid manager PIN. Check the QUICKBYT_MANAGER_PIN environment variable on the server; the server does not use your local .env when deployed.'); return;
     }
     recordSuccessfulLogin(ip);
     const token = randomToken(); sessions.set(token, Date.now() + SESSION_TTL_MS);
@@ -391,7 +415,7 @@ const port = Number(process.env.PORT || 5500);
 if (!Number.isInteger(port) || port < 1 || port > 65535) {
   console.error('PORT must be a valid TCP port number.'); process.exit(2);
 }
-const host = process.env.HOST || '127.0.0.1';
+const host = process.env.HOST || (process.env.PORT ? '0.0.0.0' : '127.0.0.1');
 const server = http.createServer(handler);
 server.listen(port, host, () => {
   console.log('');

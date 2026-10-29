@@ -1,0 +1,25 @@
+QUICK BYT FIX PATCH — IMPORTANT
+
+This patch fixes:
+- Manager PIN matching and the message shown when the deployed PIN does not match.
+- Better diagnostics when the site is hosted as static HTML without the Node backend.
+- Health response includes menuCount, allowing you to spot outdated deployments.
+- 19 restored menu entries (57 total) are added to BOTH frontend/index.html and backend/menu_seed.json.
+- SQLite migration adds new columns when an older local database already exists.
+
+APPLY TO YOUR EXISTING GITHUB PROJECT
+1. Download and extract this patch ZIP.
+2. Copy/merge its contents into the local QuickByt Git repository folder — the one containing server.js, render.yaml and package.json. Allow the same-named files to be replaced.
+3. Do NOT replace your private .env file or delete your data/quickbyt.db. The patch ZIP does not include either file.
+4. Open VS Code terminal in the repository root and run:
+   npm run check
+   git status
+   git add frontend/index.html backend/menu_seed.json server.js README.md DEPLOY_ONLINE.md MENU_ITEMS_RESTORED.md PATCH_INSTRUCTIONS.txt
+   git commit -m "Fix backend diagnostics, manager PIN, and restore menu items"
+   git push
+5. In Render, open the Quick Byt WEB SERVICE and select Manual Deploy -> Deploy latest commit (if automatic deployment isn't enabled).
+6. Test YOUR-RENDER-URL/api/health. Updated response should include menuCount: 57 and managerPinConfigured: true.
+7. If PIN login is still rejected, update Render Environment -> QUICKBYT_MANAGER_PIN to exactly the PIN you want to use. Local .env is not used by the hosted service.
+
+PRICE WARNING
+The 19 restored food entries use sample/estimated prices, because the version of the HTML and menu data pushed to GitHub did not actually contain their price rows. Confirm the prices in MENU_ITEMS_RESTORED.md and update both files before real canteen orders.
